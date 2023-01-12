@@ -1,77 +1,61 @@
-# apiVersion: apps/v1
-# kind: Deployment
-# metadata:
-#   name: {{ template "helm-guestbook.fullname" . }}
-#   labels:
-#     app: {{ template "helm-guestbook.name" . }}
-#     chart: {{ template "helm-guestbook.chart" . }}
-#     release: {{ .Release.Name }}
-#     heritage: {{ .Release.Service }}
-# spec:
-#   replicas: {{ .Values.replicaCount }}
-#   revisionHistoryLimit: 3
-#   selector:
-#     matchLabels:
-#       app: {{ template "helm-guestbook.name" . }}
-#       release: {{ .Release.Name }}
-#   template:
-#     metadata:
-#       labels:
-#         app: {{ template "helm-guestbook.name" . }}
-#         release: {{ .Release.Name }}
-#     spec:
-#       containers:
-#         - name: {{ .Chart.Name }}
-#           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-#           imagePullPolicy: {{ .Values.image.pullPolicy }}
-#           ports:
-#             - name: http
-#               containerPort: 80
-#               protocol: TCP
-#           livenessProbe:
-#             httpGet:
-#               path: /
-#               port: http
-#           readinessProbe:
-#             httpGet:
-#               path: /
-#               port: http
-#           resources:
-# {{ toYaml .Values.resources | indent 12 }}
-#     {{- with .Values.nodeSelector }}
-#       nodeSelector:
-# {{ toYaml . | indent 8 }}
-#     {{- end }}
-#     {{- with .Values.affinity }}
-#       affinity:
-# {{ toYaml . | indent 8 }}
-#     {{- end }}
-#     {{- with .Values.tolerations }}
-#       tolerations:
-# {{ toYaml . | indent 8 }}
-#     {{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  creationTimestamp: null
+  name: {{ include "devopsodia.fullname" . }}
   labels:
-    app: django
-  name: django
+    {{- include "devopsodia.labels" . | nindent 4 }}
 spec:
-  replicas: 1
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
   selector:
     matchLabels:
-      app: django
-  strategy: {}
+      {{- include "devopsodia.selectorLabels" . | nindent 6 }}
   template:
     metadata:
-      creationTimestamp: null
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       labels:
-        app: django
+        {{- include "devopsodia.selectorLabels" . | nindent 8 }}
     spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "devopsodia.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
-      - image: manoj3699/django-todo:latest
-        name: django
-        imagePullPolicy: Never
-        resources: {}
-status: {}
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
